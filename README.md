@@ -4,7 +4,7 @@ The source code for "High-Parameter Spatial Multi-Omics through Histology-Anchor
 Our step-by-step tutorial can be found [here](https://spatialex-tutorials.readthedocs.io/en/latest).
 
 ## Overall architecture of SpatialEx and SpatialEx+
-![](https://github.com/fearlesstolove/SpatialEx/blob/main/figure.jpg)
+![](https://github.com/KEAML-JLU/SpatialEx/blob/main/figure.jpg)
 ## Usage
 You can run the following the command.
 
