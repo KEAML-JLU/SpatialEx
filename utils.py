@@ -60,7 +60,7 @@ def structural_similarity_on_graph_data(x, y, adj, K1=0.01, K2=0.03, alpha=1, be
     S = (A1/B1)**alpha * (A2/B2)**beta * (A3/B3)**gamma
     return S.mean(0)    
 
-def Compute_metrics(x, x_prime, metric='cosine_similarity', reduce='median', graph=None):
+def Compute_metrics(x, x_prime, metric='cosine_similarity', reduce='mean', graph=None):
     metric = metric.lower()
     if metric == 'cosine_similarity':
         dot_product = np.sum(x_prime * x, axis=0)
