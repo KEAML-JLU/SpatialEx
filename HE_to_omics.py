@@ -174,7 +174,7 @@ def main(args):
     obs_list = []
     for data in slice1_dataloader:
         graph, he, obs = data[0]['graph'].to(args.device), data[0]['he'].to(args.device), data[0]['obs']
-        panelB1 = module_HA.predict(he, graph).detach().cpu().numpy()
+        panelB1 = module_HB.predict(he, graph).detach().cpu().numpy()
         panel_1b.append(panelB1)
         obs_list = obs_list + obs
     panel_1b = np.vstack(panel_1b)
@@ -203,7 +203,7 @@ def main(args):
     obs_list = []
     for data in slice2_dataloader:
         graph, he, obs = data[0]['graph'].to(args.device), data[0]['he'].to(args.device), data[0]['obs']
-        panel2A = module_HB.predict(he, graph).detach().cpu().numpy()
+        panel2A = module_HA.predict(he, graph).detach().cpu().numpy()
         panel_2a.append(panel2A)
         obs_list = obs_list + obs
     panel_2a = np.vstack(panel_2a)
