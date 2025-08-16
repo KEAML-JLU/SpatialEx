@@ -220,7 +220,8 @@ def main(args):
     # gene-level
     cs_sg, cs_reduce_sg = Compute_metrics(adata_slice2.X, panel_2a.values, metric='cosine_similarity')        # 分别以单细胞、基因计算余弦相似度和均方根误差
     ssim, ssim_reduce = Compute_metrics(adata_slice2.X, panel_2a.values, metric='ssim', graph=graph)
-    pcc, pcc_reduce = Compute_metrics(adata_slice2.X, panel_2a.values, metric='pcc')               
+    pcc, pcc_reduce = Compute_metrics(adata_slice2.X, panel_2a.values, metric='pcc')
+    cmd, cmd_reduce = Compute_metrics(adata_slice2.X, panel_2a.values, metric='cmd')
     print('Evaluation of the Slice2 in gene-level, cosine similarity: ', cs_reduce_sg, ' ssim: ', ssim_reduce, ' pcc: ', pcc_reduce, ' cmd: ', cmd_reduce)
     
 
