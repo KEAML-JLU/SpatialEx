@@ -1,0 +1,14 @@
+LICENSE.md
+README.md
+setup.py
+SpatialEx/SpatialEx_pyG.py
+SpatialEx/__init__.py
+SpatialEx/model.py
+SpatialEx/preprocess.py
+SpatialEx/utils.py
+SpatialEx.egg-info/PKG-INFO
+SpatialEx.egg-info/SOURCES.txt
+SpatialEx.egg-info/dependency_links.txt
+SpatialEx.egg-info/not-zip-safe
+SpatialEx.egg-info/requires.txt
+SpatialEx.egg-info/top_level.txt

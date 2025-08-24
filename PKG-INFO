@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: SpatialEx
+Version: 0.1.4
+Summary: computational frameworks that leverage histology as a universal anchor to integrate spatial molecular data across tissue sections
+Home-page: https://github.com/KEAML-JLU/SpatialEx
+Author: Yonghao Liu and Chuyao Wang
+Author-email: yonghao20@mails.jlu.edu.cn
+License: MIT
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: requests
+
+The foundational SpatialEx model combines a pre-trained H&E foundation model with hypergraph learning and contrastive learning to predict single-cell omics profiles from histology, encoding multi-neighborhood spatial dependencies and global tissue context. Building upon SpatialEx, SpatialEx+ introduces an omics cycle module that encourages cross-omics consistency across adjacent sections via slice-invariant mapping functions, achieving seamless diagonal integration without requiring co-measured multi-omics data for training.
