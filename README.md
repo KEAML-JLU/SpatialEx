@@ -17,7 +17,7 @@ pip install SpatialEx
 ```
 We have packaged our implementation into an easy-to-use Python library for use by the research community. The accompanying [tutorial](https://spatialex-tutorials.readthedocs.io/en/latest/Installation.html) offers detailed guidance on how to use the package effectively.
 
-A detailed guide to all applications in the paper is available in ```demonstration.ipynb```.
+A detailed guide to all applications in the paper is available in ```Demonstration.ipynb```.
 
 ### Prepare datasets
 The Xenium Human Breast Cancer tissue dataset is available at this [site](https://www.10xgenomics.com/products/xenium-in-situ/human-breast-dataset-explorer).
