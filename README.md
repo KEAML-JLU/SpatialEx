@@ -15,6 +15,22 @@ pip install requirements.txt
 ```
 pip install SpatialEx
 ```
+Several important packages are listed below in case you prefer not to install too many packages.
+```
+anndata=0.8.0
+scanpy==1.9.3
+numpy==1.23.5
+pandas==2.0.3
+cellpose==3.0.10
+scikit-image==0.21.0
+scikit-learn==1.3.2
+scikit-mise==0.2.0
+torch==2.3.1
+huggingface-hub==0.24.6
+timm==1.0.8
+torchvision==0.18.1
+```
+
 We have packaged our implementation into an easy-to-use Python library for use by the research community. The accompanying [tutorial](https://spatialex-tutorials.readthedocs.io/en/latest/Installation.html) offers detailed guidance on how to use the package effectively.
 
 A detailed guide to all applications in the paper is available in ```Demonstration.ipynb```.
