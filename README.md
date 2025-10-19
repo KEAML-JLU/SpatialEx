@@ -17,7 +17,7 @@ pip install SpatialEx
 ```
 Several important packages are listed below in case you prefer not to install too many packages.
 ```
-anndata=0.8.0
+anndata==0.8.0
 scanpy==1.9.3
 numpy==1.23.5
 pandas==2.0.3
