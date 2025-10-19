@@ -200,8 +200,6 @@ class Train_SpatialEx:
         panel_1b = np.vstack(panel_1b)
         panel_1b = pd.DataFrame(panel_1b)
         panel_1b.columns = self.adata1.var_names
-        panel_1b['obs_name'] = obs_list
-        panel_1b = panel_1b.groupby('obs_name').mean()
 
         '''Panel2B'''
         panel_2a = []
@@ -214,8 +212,6 @@ class Train_SpatialEx:
         panel_2a = np.vstack(panel_2a)
         panel_2a = pd.DataFrame(panel_2a)
         panel_2a.columns = self.adata2.var_names
-        panel_2a['obs_name'] = obs_list
-        panel_2a = panel_2a.groupby('obs_name').mean()
 
         if self.save:
             save_path = './results/'
