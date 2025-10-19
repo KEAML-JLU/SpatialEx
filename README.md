@@ -9,7 +9,7 @@ Our step-by-step tutorial can be found [here](https://spatialex-tutorials.readth
 You can run the following the command.
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 ```
