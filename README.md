@@ -46,4 +46,4 @@ The Visium Spatial Multimodal Analysis (SMA) dataset is available at this [site]
 
 
 
-If you have any questions, please feel free to contact us via [email](yonghao20@mails.jlu.edu.cn).
+If you have any questions, please feel free to contact [yonghao](yonghao20@mails.jlu.edu.cn) or [chuyao](wcy22@mails.jlu.edu.cn).
