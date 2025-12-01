@@ -42,7 +42,9 @@ The Xenium Human Breast Cancer tissue dataset is available at this [site](https:
 
 The 10x Xenium Human Breast Using the Entire Sample Area dataset is publicly available at this [site](https://www.10xgenomics.com/datasets/ffpe-human-breast-using-the-entire-sample-area-1-standard). 
 
-The Visium Spatial Multimodal Analysis (SMA) dataset is available at this [site](https://data.mendeley.com/datasets/w7nw4km7xd/1).
+The Visium Spatial Multimodal Analysis (SMA) dataset is available at this [site](https://data.mendeley.com/datasets/w7nw4km7xd/1). 
+
+The preprocessed IF data for **Xenium Human Breast Cancer Rep1**, and **mouse brain SMA** adata were obtained from another study, please cite the study using the following link: 📄<a href="https://doi.org/10.1101/2024.12.05.626986">NicheTrans</a>, the data are stored in 🔗[Zenodo](https://zenodo.org/records/15706278), the usage can also be found in 📘<a href="[https://doi.org/10.1101/2024.12.05.626986](https://nichetrans-tutorials.readthedocs.io/)">NicheTrans Tutorials</a>.
 
 
 
