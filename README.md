@@ -1,7 +1,7 @@
 # SpatialEx
 The source code for "High-Parameter Spatial Multi-Omics through Histology-Anchored Integration".
 
-Our step-by-step tutorial can be found [here](https://spatialex-tutorials.readthedocs.io/en/latest).
+📘 Our step-by-step **tutorials** can be found [here](https://spatialex-tutorials.readthedocs.io/en/latest).
 
 ## Overall architecture of SpatialEx and SpatialEx+
 ![](https://github.com/KEAML-JLU/SpatialEx/blob/main/figure.jpg)
@@ -38,14 +38,14 @@ We have packaged our implementation into an easy-to-use Python library for use b
 A detailed guide to all applications in the paper is available in ```Demonstration.ipynb```.
 
 ### Prepare datasets
-The Xenium Human Breast Cancer tissue dataset is available at this [site](https://www.10xgenomics.com/products/xenium-in-situ/human-breast-dataset-explorer).
+🧬 The Xenium Human Breast Cancer tissue dataset is available at this [site](https://www.10xgenomics.com/products/xenium-in-situ/human-breast-dataset-explorer).
 
-The 10x Xenium Human Breast Using the Entire Sample Area dataset is publicly available at this [site](https://www.10xgenomics.com/datasets/ffpe-human-breast-using-the-entire-sample-area-1-standard). 
+🧬 The 10x Xenium Human Breast Using the Entire Sample Area dataset is publicly available at this [site](https://www.10xgenomics.com/datasets/ffpe-human-breast-using-the-entire-sample-area-1-standard). 
 
-The Visium Spatial Multimodal Analysis (SMA) dataset is available at this [site](https://data.mendeley.com/datasets/w7nw4km7xd/1). 
+🧬 The Spatial Multimodal Analysis (SMA) dataset is available at this [site](https://data.mendeley.com/datasets/w7nw4km7xd/1). 
 
-The preprocessed IF data for **Xenium Human Breast Cancer Rep1**, and **mouse brain SMA** adata were obtained from another study, please cite the study using the following link: 📄<a href="https://doi.org/10.1101/2024.12.05.626986">NicheTrans</a>, the data are stored in 🔗[Zenodo](https://zenodo.org/records/15706278), the usage can also be found in 📘<a href="[https://doi.org/10.1101/2024.12.05.626986](https://nichetrans-tutorials.readthedocs.io/)">NicheTrans Tutorials</a>.
+The preprocessed **IF data** for Xenium Human Breast Cancer Rep1, and **mouse brain SMA** data were obtained from another study, please cite the study using the following link: 📄<a href="https://doi.org/10.1101/2024.12.05.626986">NicheTrans</a>, the data are stored in 🔗[Zenodo](https://zenodo.org/records/15706278), the usage can also be found in 📘[NicheTrans Tutorials](https://nichetrans-tutorials.readthedocs.io/).
 
 
 
-If you have any questions, please feel free to contact [yonghao](yonghao20@mails.jlu.edu.cn) or [chuyao](wcy22@mails.jlu.edu.cn).
+If you have any questions, please feel free to contact 📩 [yonghao](yonghao20@mails.jlu.edu.cn) or 📩 [chuyao](wcy22@mails.jlu.edu.cn).
