@@ -47,5 +47,5 @@ A detailed guide to all applications in the paper is available in ```Demonstrati
 The preprocessed **IF data** for Xenium Human Breast Cancer Rep1, and **mouse brain SMA** data were obtained from another study, please cite the study using the following link: 📄<a href="https://doi.org/10.1101/2024.12.05.626986">NicheTrans</a>, the data are stored in 🔗[Zenodo](https://zenodo.org/records/15706278), the usage can also be found in 📘[NicheTrans Tutorials](https://nichetrans-tutorials.readthedocs.io/).
 
 
-
-If you have any questions, please feel free to contact 📩 [yonghao](mailto:yonghao20@mails.jlu.edu.cn) or 📩 [chuyao](mailto:wcy22@mails.jlu.edu.cn).
+  
+If you have any questions, please feel free to contact 📩 [yonghao(yonghao20@mails.jlu.edu.cn)](mailto:yonghao20@mails.jlu.edu.cn) or 📩 [chuyao(wcy22@mails.jlu.edu.cn)](mailto:wcy22@mails.jlu.edu.cn).
