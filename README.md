@@ -1,6 +1,8 @@
 # SpatialEx
 The source code for "High-Parameter Spatial Multi-Omics through Histology-Anchored Integration".
 
+The published version and the preprint of our work are available at [Website 1](https://www.nature.com/articles/s41592-025-02926-6) and [Website 2](https://www.biorxiv.org/content/10.1101/2025.02.23.639721v2.abstract).
+
 📘 Our step-by-step **tutorials** can be found [here](https://spatialex-tutorials.readthedocs.io/en/latest).
 
 ## Overall architecture of SpatialEx and SpatialEx+
@@ -46,6 +48,19 @@ A detailed guide to all applications in the paper is available in ```Demonstrati
 
 The preprocessed **IF data** for Xenium Human Breast Cancer Rep1, and **mouse brain SMA** data were obtained from another study, please cite the study using the following link: 📄<a href="https://doi.org/10.1101/2024.12.05.626986">NicheTrans</a>, the data are stored in 🔗[Zenodo](https://zenodo.org/records/15706278), the usage can also be found in 📘[NicheTrans Tutorials](https://nichetrans-tutorials.readthedocs.io/).
 
+### Citation
+If you find our work useful, we would appreciate it if you could cite our paper.
 
+```
+@article{liu2025high,
+  title={High-Parameter Spatial Multi-Omics through Histology-Anchored Integration},
+  author={Liu, Yonghao and Wang, Chuyao and Wang, Zhikang and Chen, Liang and Li, Zhi and Song, Jiangning and Zou, Qi and Gao, Rui and Qian, Binzhi and Feng, Xiaoyue and others},
+  journal={Nature Methods},
+  year={2025}
+}
   
+```
+
+### Contact
+
 If you have any questions, please feel free to contact 📩 [yonghao (yonghao20@mails.jlu.edu.cn)](mailto:yonghao20@mails.jlu.edu.cn) or 📩 [chuyao (wcy22@mails.jlu.edu.cn)](mailto:wcy22@mails.jlu.edu.cn).
