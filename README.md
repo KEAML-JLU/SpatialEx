@@ -147,4 +147,4 @@ If you have any questions or need support, please feel free to contact us:
 - 📩 **Yonghao Liu**: [yonghao20@mails.jlu.edu.cn](mailto:yonghao20@mails.jlu.edu.cn)
 - 📩 **Chuyao Wang**: [wcy22@mails.jlu.edu.cn](mailto:wcy22@mails.jlu.edu.cn)
 
-
+For a more prompt response, we kindly recommend reaching out via email.
