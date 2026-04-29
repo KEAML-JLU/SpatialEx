@@ -333,7 +333,7 @@ class Model(nn.Module):
         return x_prime
 
 
-class Model_Plus(nn.Module):
+class Model_Plus(nn.Module):  ##修改
     def __init__(self,
                  in_dim: int,
                  hidden_dim: int,
@@ -366,14 +366,14 @@ class Model_Plus(nn.Module):
         if loss_fn == 'mse':
             self.criterion = nn.MSELoss()
 
-    def forward(self, x, adj, y, agg_mtx=None):
+    def forward(self, x, adj, origin_y, agg_y, agg_mtx=None, use_agg=True):
         x = self.mlp(x)
         h = F.leaky_relu(self.hgnn(x, adj))
         x_prime = F.leaky_relu(self.predictor(h))
-        if self.platform == 'Visium':
-            loss = self.criterion(x_prime, y)
+        if self.platform == 'Visium' or not use_agg:
+            loss = self.criterion(x_prime, origin_y)
         else:
-            loss = self.criterion(torch.mm(agg_mtx, x_prime), y)
+            loss = self.criterion(torch.mm(agg_mtx, x_prime), agg_y)
         if self.use_dgi:
             nb_nodes = x.shape[0]
             x_shuffle = x[torch.randperm(nb_nodes)]
@@ -382,7 +382,7 @@ class Model_Plus(nn.Module):
             lbl_2 = -torch.ones(nb_nodes).to(x.device)
             loss = loss + self.b_xent(h1, c, lbl_1) + self.b_xent(h2, c, lbl_2)
         return loss, x_prime
-
+    
     def predict(self, x, adj, grad=False):
         if not grad:
             with torch.no_grad():
@@ -416,16 +416,16 @@ class Regression(nn.Module):
         )
         self.b_xent = nn.MSELoss()
 
-    def forward(self, x, y=None, agg_mtx=None):
+    def forward(self, x, origin_y=None, agg_y=None, agg_mtx=None, use_agg=True):
         x = self.mlp(x)
-        if y is None:
+        if origin_y is None and agg_y is None:
             return x
-        if agg_mtx != None:
-            loss = self.b_xent(torch.spmm(agg_mtx, x), y)
+        if agg_mtx != None and use_agg:
+            loss = self.b_xent(torch.spmm(agg_mtx, x), agg_y)
         else:
-            loss = self.b_xent(x, y)
+            loss = self.b_xent(x, origin_y)
         return loss, x
-
+    
     def predict(self, x, grad=False):
         if not grad:
             with torch.no_grad():

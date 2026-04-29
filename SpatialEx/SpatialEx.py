@@ -149,7 +149,7 @@ class SpatialEx:
         predicts the missing panel on each slice and computes metrics at
         gene-level (cosine similarity, SSIM, PCC, CMD).
 
-        Args:
+        self:
             data_dir: Project root containing a ``datasets/`` folder with:
                 - ``Human_Breast_Cancer_Rep1/cell_feature_matrix.h5``
                 - ``Human_Breast_Cancer_Rep1/cells.csv``
@@ -191,7 +191,7 @@ class SpatialEx:
             epoch_iter.set_description(f"#Epoch: {epoch}: train_loss: {loss.item():.2f}")
 
         '''========================= 测试 ========================'''
-    def inference(self, he, graph, panel='panelA'):
+    def inference(self, he, graph, panel):
         """Predict gene expression for a given panel on a single slice.
 
         This is a lightweight inference helper that runs the corresponding
@@ -221,17 +221,19 @@ class SpatialEx:
         
         if panel == 'panelA':
             self.module_HA.eval()
-            panel = self.module_HA.predict(he, graph).detach().cpu().numpy()
-        if panel == 'panelB':
+            pred = self.module_HA.predict(he, graph).detach().cpu().numpy()
+            panel_name = "panelA"
+        elif panel == 'panelB':
             self.module_HB.eval()
-            panel = self.module_HB.predict(he, graph).detach().cpu().numpy()
+            pred = self.module_HB.predict(he, graph).detach().cpu().numpy()
+            panel_name = "panelB"
 
         if self.save_path is not None:
             if not os.path.exists(self.save_path):
                 os.mkdir(self.save_path)
-            np.save(self.save_path + panel + '.npy', panel)
+            np.save(self.save_path + panel_name + '.npy', pred)
             print(f'The results have been sucessfully saved in {self.save_path}')      # 改成保存路径
-        return panel
+        return pred
 
     def auto_inference(self):
         """Run cross-panel prediction for both slices using internal dataloaders.
@@ -267,7 +269,7 @@ class SpatialEx:
             obs_list = obs_list + obs
         panel_1b = np.vstack(panel_1b)
         panel_1b = pd.DataFrame(panel_1b)
-        panel_1b.columns = self.adata1.var_names
+        panel_1b.columns = self.adata2.var_names ##修改
         panel_1b = panel_1b.values
 
         '''Panel2B'''
@@ -280,7 +282,7 @@ class SpatialEx:
             obs_list = obs_list + obs
         panel_2a = np.vstack(panel_2a)
         panel_2a = pd.DataFrame(panel_2a)
-        panel_2a.columns = self.adata2.var_names
+        panel_2a.columns = self.adata1.var_names ##修改
         panel_2a = panel_2a.values
 
         if self.save_path is not None:
@@ -298,6 +300,7 @@ class SpatialExP:
                  adata2,
                  graph1,
                  graph2,
+                 use_agg = True, ##计算损失的时候使用原始分辨率还是spot分辨率
                  platform = 'Xenium',
                  seed=0,
                  device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
@@ -309,6 +312,7 @@ class SpatialExP:
                  num_layers=2,
                  epochs=1000,
                  lr=0.001,
+                 prune=10000,
                  loss_fn="mse",
                  num_neighbors=7,
                  graph_kind='spatial',
@@ -377,10 +381,16 @@ class SpatialExP:
         self.lr = lr
         self.loss_fn = loss_fn
         self.save_path = save_path
-
+        self.use_agg = use_agg
         # 空间参数
         self.num_neighbors = num_neighbors
         self.graph_kind = graph_kind
+
+        self.slice1_dataloader = pp.Build_dataloader(adata1, graph=graph1, graph_norm='hpnn', feat_norm=False,
+                                                     prune=[prune, prune], drop_last=False)
+        
+        self.slice2_dataloader = pp.Build_dataloader(adata2, graph=graph2, graph_norm='hpnn', feat_norm=False,
+                                                     prune=[prune, prune], drop_last=False)
 
 
         self.HE1, self.HE2 = torch.Tensor(adata1.obsm['he']).to(self.device), torch.Tensor(adata2.obsm['he']).to(self.device)
@@ -424,23 +434,31 @@ class SpatialExP:
         print('\n')
         print('=================================== Start training =========================================')
         for epoch in tqdm(range(self.epochs)):
-            loss1, _ = self.module_HA(self.HE1, self.graph1, self.panelA1)
-            loss2, _ = self.module_HB(self.HE2, self.graph2, self.panelB2)
+            batch_iter = zip(self.slice1_dataloader, self.slice2_dataloader)
+            for data1, data2 in batch_iter:
+                graph1, he1, panel_1a = data1[0]['graph'].to(self.device), data1[0]['he'].to(self.device), data1[0]['exp'].to(self.device)
+                graph2, he2, panel_2b = data2[0]['graph'].to(self.device), data2[0]['he'].to(self.device), data2[0]['exp'].to(self.device)
+                agg_mtx1, agg_exp1 = data1[0]['agg_mtx'].to(self.device), data1[0]['agg_exp'].to(self.device)
+                agg_mtx2, agg_exp2 = data2[0]['agg_mtx'].to(self.device), data2[0]['agg_exp'].to(self.device)
+                
+                loss1, _ = self.module_HA(he1, graph1, panel_1a, agg_exp1, agg_mtx1, self.use_agg)
+                loss2, _ = self.module_HB(he2, graph2, panel_2b, agg_exp2, agg_mtx2, self.use_agg)
 
-            panelA2 = self.module_HA.predict(self.HE2, self.graph2, grad=False)
-            panelB1 = self.module_HB.predict(self.HE1, self.graph1, grad=False)
-            loss3, _ = self.rm_AB(panelA2, self.panelB2)
-            loss4, _ = self.rm_BA(panelB1, self.panelA1)
+                panel_2a = self.module_HA.predict(he2, graph2, grad=False) ##对切片2的组学a进行预测
+                panel_1b = self.module_HB.predict(he1, graph1, grad=False) ##对切片1的组学b进行预测
+                
+                loss3, _ = self.rm_AB(panel_1a, panel_1b, torch.spmm(agg_mtx1, panel_1b), agg_mtx1, self.use_agg) ##将切片1的组学a映射成切片1的组学b，与预测的组学b进行比较
+                loss4, _ = self.rm_BA(panel_2b, panel_2a, torch.spmm(agg_mtx2, panel_2a), agg_mtx2, self.use_agg) ##将切片2的组学b映射成切片2的组学a，与预测的组学a进行比较
 
-            loss5, _ = self.rm_AB(self.panelA1, panelB1)
-            loss6, _ = self.rm_BA(self.panelB2, panelA2)
-            loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
+                loss5, _ = self.rm_AB(panel_2a, panel_2b, agg_exp2, agg_mtx2, self.use_agg) #对切片2的组学a进行预测，在映射回组学b，与切片2的真实标签进行比较
+                loss6, _ = self.rm_BA(panel_1b, panel_1a, agg_exp1, agg_mtx1, self.use_agg) #对切片1的组学b进行预测，在映射回组学a，与切片1的真实标签进行比较
+                loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
     
-    def inference_direct(self, he, graph, panel='panelA'):
+    def inference_direct(self, he, graph, panel):
         """Directly predict the specified panel with its corresponding backbone.
 
         Parameters
@@ -481,7 +499,7 @@ class SpatialExP:
         return omics_direct.detach().cpu().numpy()
         
         
-    def inference_indirect(self, he, graph, panel='panelA'):
+    def inference_indirect(self, he, graph, panel):
         """Indirectly infer the missing panel using a regression mapper.
 
         For ``panelB`` inference, the method first predicts panel A with
@@ -575,6 +593,7 @@ class SpatialExP_Big:
                  adata2,
                  graph1,
                  graph2,
+                 use_agg = True, ##计算损失的时候使用原始分辨率还是spot分辨率
                  num_layers=2,
                  hidden_dim=512,
                  epochs=200,
@@ -646,6 +665,7 @@ class SpatialExP_Big:
         self.seed = seed
         self.device = device
         self.weight_decay = weight_decay
+        self.use_agg = use_agg
 
         self.batch_size = batch_size
         self.batch_num = batch_num
@@ -732,99 +752,18 @@ class SpatialExP_Big:
 
                 x_prime = self.model_big.predict([tgt_cell1, tgt_cell2], [self.HE1, self.HE2], exchange=True, which='both', grad=False)
                 panel_A2, panel_B1 = x_prime[0], x_prime[1]
-                loss3, _ = self.model_AB(panel_A2, spot_B2_batch, sub_agg_mtx2)
-                loss4, _ = self.model_BA(panel_B1, spot_A1_batch, sub_agg_mtx1)
-                loss5, _ = self.model_AB(self.panelA1[tgt_cell1].to(self.device), torch.spmm(sub_agg_mtx1, panel_B1), sub_agg_mtx1)
-                loss6, _ = self.model_BA(self.panelB2[tgt_cell2].to(self.device), torch.spmm(sub_agg_mtx2, panel_A2), sub_agg_mtx2)
+                loss3, _ = self.model_AB(panel_A2, self.panelB2[tgt_cell2].to(self.device), spot_B2_batch, sub_agg_mtx2, self.use_agg)
+                loss4, _ = self.model_BA(panel_B1, self.panelA1[tgt_cell1].to(self.device), spot_A1_batch, sub_agg_mtx1, self.use_agg)
+
+                loss5, _ = self.model_AB(self.panelA1[tgt_cell1].to(self.device), panel_B1, torch.spmm(sub_agg_mtx1, panel_B1), sub_agg_mtx1, self.use_agg)
+                loss6, _ = self.model_BA(self.panelB2[tgt_cell2].to(self.device), panel_A2, torch.spmm(sub_agg_mtx2, panel_A2), sub_agg_mtx2, self.use_agg)
                 loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
                 batch_iter.set_description(f"#Epoch {epoch}, loss: {round(loss.item(), 2)}")
-
-    def inference_indirect(self, he, graph, panel='panelA'):
-        """Indirectly infer the missing panel on a query slice in batches.
-
-        Parameters
-        ----------
-        he : array-like
-            Histology embedding for the query slice.
-        graph : scipy.sparse.spmatrix or compatible
-            Graph for the query slice.
-        panel : {"panelA", "panelB"}, default "panelA"
-            Target panel to infer.
-
-        Returns
-        -------
-        numpy.ndarray
-            Indirect prediction matrix for the requested panel.
-
-        Notes
-        -----
-        The computation is split into ``batch_num`` chunks to reduce peak memory.
-        If :attr:`save_path` is set, outputs are saved as ``<panel>.npy``.
-        """
-        he = torch.Tensor(he).to(self.device)
-        graph = pp.sparse_mx_to_torch_sparse_tensor(graph).to(self.device)
-
-        if panel == 'panelB':
-            self.model_big.eval()
-            self.model_AB.eval()
-
-            obs_index1 = list(range(he.shape[0]))
-            obs_index2 = list(range(self.HE2.shape[0]))
-            batch_size1 = int(np.ceil(he.shape[0]/self.batch_num))
-            batch_size2 = int(np.ceil(self.HE2.shape[0]/self.batch_num))
-            batch_iter = tqdm(range(self.batch_num), leave=False)
-            
-            indirect_panel_list = []
-            tgt_id1_list = []
-            for batch_idx in batch_iter:
-                tgt_id1 = obs_index1[batch_idx*batch_size1:min((batch_idx+1)*batch_size1, he.shape[0])]
-                tgt_id2 = obs_index2[batch_idx*batch_size2:min((batch_idx+1)*batch_size2, self.HE2.shape[0])]
                 
-                x_prime = self.model_big.predict([tgt_id1, tgt_id2], [he, self.HE2], exchange=False, which='both')
-                panel_A1_predict = x_prime[0]
-                indirect_panel_B1 = self.model_AB.predict(panel_A1_predict)
-                
-                tgt_id1_list = tgt_id1_list + tgt_id1
-                indirect_panel_list.append(indirect_panel_B1.detach().cpu().numpy())
-            indirect_panel_list = np.vstack(indirect_panel_list)
-
-        if panel == 'panelA':
-            self.model_big.eval()
-            self.model_BA.eval()
-
-            obs_index1 = list(range(self.HE1.shape[0]))
-            obs_index2 = list(range(he.shape[0]))
-            batch_size1 = int(np.ceil(self.HE1.shape[0]/self.batch_num))
-            batch_size2 = int(np.ceil(he.shape[0]/self.batch_num))
-            batch_iter = tqdm(range(self.batch_num), leave=False)
-            
-            indirect_panel_list = []
-            tgt_id2_list = []
-            for batch_idx in batch_iter:
-                tgt_id1 = obs_index1[batch_idx*batch_size1:min((batch_idx+1)*batch_size1, self.HE1.shape[0])]
-                tgt_id2 = obs_index2[batch_idx*batch_size2:min((batch_idx+1)*batch_size2, he.shape[0])]
-                
-                x_prime = self.model_big.predict([tgt_id1, tgt_id2], [self.HE1, he], exchange=False, which='both')
-                panel_B2_predict = x_prime[1]
-                indirect_panel_A2 = self.model_BA.predict(panel_B2_predict)
-                
-                tgt_id2_list = tgt_id2_list + tgt_id2
-                indirect_panel_list.append(indirect_panel_A2.detach().cpu().numpy())
-            indirect_panel_list = np.vstack(indirect_panel_list)
-            
-        if self.save_path is not None:
-            if not os.path.exists(self.save_path):
-                os.mkdir(self.save_path)
-            np.save(self.save_path + panel + '.npy', indirect_panel_list)
-            print(f'The results have been sucessfully saved in {self.save_path}')
-
-        return indirect_panel_list
-
-
     def auto_inference(self):
         """Run indirect cross-panel prediction for both original slices.
 
