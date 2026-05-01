@@ -87,7 +87,7 @@ pip install torchvision==0.18.1
 We have packaged our implementation into an easy-to-use Python library for the research community. 
 
 - 📖 **Detailed Installation Guide**: [Tutorial Documentation](https://spatialex-tutorials.readthedocs.io/en/latest/Installation.html)
-- 📓 **Comprehensive Examples**: See `Demonstration.ipynb` for detailed guides to all applications in the paper
+<!-- - 📓 **Comprehensive Examples**: See `Demonstration.ipynb` for detailed guides to all applications in the paper--> 
 
 ---
 
