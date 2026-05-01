@@ -117,23 +117,6 @@ class HyperSAGE(nn.Module):
             node_feat = F.leaky_relu(torch.mm(self.dropout(feat_input), self.weight_list[layer]))
         return node_feat
 
-    def predict(self, node_feat, neighbor_list, graph_attr):
-        '''需要重新计算超图相关属性'''
-        neighbor_agg_emb = self.Aggregate_neighbors(neighbor_list[self.num_layers - 1][0],
-                                                    neighbor_list[self.num_layers][0], node_feat, graph_attr)
-        map_dict = neighbor_list[self.num_layers][1]
-        tgt_index = map_dict[neighbor_list[self.num_layers - 1][0]]
-        feat_input = torch.hstack([node_feat[tgt_index], neighbor_agg_emb])
-        node_feat = F.leaky_relu(torch.mm(self.dropout(feat_input), self.weight1))
-
-        neighbor_agg_emb = self.Aggregate_neighbors(neighbor_list[self.num_layers - 2][0],
-                                                    neighbor_list[self.num_layers - 1][0], node_feat, graph_attr)
-        map_dict = neighbor_list[self.num_layers - 1][1]
-        tgt_index = map_dict[neighbor_list[self.num_layers - 2][0]]
-        feat_input = torch.hstack([node_feat[tgt_index], neighbor_agg_emb])
-        node_feat = F.leaky_relu(torch.mm(self.dropout(feat_input), self.weight2))
-        return node_feat
-
     def sparse_mx_to_torch_sparse_tensor(self, sparse_mx, cuda=False):
         """Convert a scipy sparse matrix to a torch sparse tensor."""
         sparse_mx = sparse_mx.tocoo().astype(np.float32)
@@ -149,18 +132,6 @@ class HyperSAGE(nn.Module):
         indices = torch.arange(data.shape[0])
         indices = torch.vstack([indices, indices]).to(self.device)
         return torch.sparse_coo_tensor(indices, data, (data.shape[0], data.shape[0]))
-
-    def initialize(self, hyper_graph):
-        hyper_graph = self.sparse_mx_to_torch_sparse_tensor(hyper_graph).to(self.device)
-        num_nodes = hyper_graph.sum(0).to_dense()  # 计算每个超边包含的节点数量
-        num_edges = hyper_graph.sum(1).to_dense()  # 每个节点被几个超边包含
-
-        node_by_node = torch.spmm(hyper_graph, hyper_graph.T)
-        indices = node_by_node.indices()
-        data = torch.ones(indices.shape[-1])
-        node_by_node = torch.sparse_coo_tensor(indices, data.to(self.device), node_by_node.shape)  # 构建节点和节点之间的连接矩阵
-        num_neighbors = node_by_node.sum(1).to_dense()  # 计算每个节点的邻居节点数量
-        return num_nodes, num_edges, num_neighbors
 
     def Aggregate_neighbors(self, tgt_idx, src_idx, node_emb, graph_attr=None):
         '''
@@ -366,7 +337,7 @@ class Model_Plus(nn.Module):  ##修改
         if loss_fn == 'mse':
             self.criterion = nn.MSELoss()
 
-    def forward(self, x, adj, origin_y, agg_y, agg_mtx=None, use_agg=True):
+    def forward(self, x, adj, origin_y, agg_y=None, agg_mtx=None, use_agg=True):
         x = self.mlp(x)
         h = F.leaky_relu(self.hgnn(x, adj))
         x_prime = F.leaky_relu(self.predictor(h))
@@ -433,42 +404,6 @@ class Regression(nn.Module):
         else:
             x = self.mlp(x)
         return x
-
-
-class Classifier(torch.nn.Module):
-    def __init__(self,
-                 dim_input,
-                 dim_hidden,
-                 dim_output,
-                 alpha,
-                 device):
-        super(Classifier, self).__init__()
-        self.hidden1 = nn.Linear(dim_input, dim_hidden)
-        self.hidden2 = nn.Linear(dim_hidden, dim_hidden)
-        self.hidden3 = nn.Linear(dim_hidden, dim_output)
-        torch.nn.init.xavier_uniform_(self.hidden1.weight)
-        torch.nn.init.xavier_uniform_(self.hidden2.weight)
-        torch.nn.init.xavier_uniform_(self.hidden3.weight)
-
-        self.criterion = focal_loss(alpha=alpha, device=device)
-
-    def forward(self, x, y):
-        x = self.add_gaussian_noise(x)
-        h = F.leaky_relu(F.dropout(self.hidden1(x)))
-        h = F.leaky_relu(F.dropout(self.hidden2(h)))
-        h = F.leaky_relu(self.hidden3(h))
-        loss = self.criterion(h, y)
-        return loss
-
-    def predict(self, x):
-        h = F.leaky_relu(F.dropout(self.hidden1(x)))
-        h = F.leaky_relu(F.dropout(self.hidden2(h)))
-        h = F.leaky_relu(self.hidden3(h))
-        return h
-
-    def add_gaussian_noise(self, x, mean=0, std=0.1):
-        noise = torch.randn_like(x) * std + mean
-        return x + noise.to(x.device)
 
 
 class Model_Big(nn.Module):
@@ -680,86 +615,6 @@ class Model_Big(nn.Module):
         self.graph_attr2 = self.initialize_graph_attr(hyper_graph[1])
         self.node_by_node1 = hyper_graph[0] @ hyper_graph[0].T
         self.node_by_node2 = hyper_graph[1] @ hyper_graph[1].T
-
-
-class focal_loss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2, num_classes=3, size_average=False, device='cpu'):
-        super(focal_loss, self).__init__()
-        self.size_average = size_average
-        if isinstance(alpha, list):
-            num_classes = len(alpha)
-            self.alpha = torch.Tensor(alpha).to(device)
-        else:
-            assert alpha < 1  # 如果α为一个常数,则降低第一类的影响,在目标检测中为第一类
-            self.alpha = torch.zeros(num_classes)
-            self.alpha[0] += alpha
-            self.alpha[1:] += (1 - alpha)
-
-        self.gamma = gamma
-
-    def forward(self, preds, labels):
-        preds = preds.view(-1, preds.size(-1))
-        preds_logsoft = F.log_softmax(preds, dim=1)  # log_softmax
-        preds_softmax = torch.exp(preds_logsoft)  # softmax
-
-        preds_softmax = preds_softmax.gather(1, labels.view(-1, 1))  # 这部分实现nll_loss ( crossempty = log_softmax + nll )
-        preds_logsoft = preds_logsoft.gather(1, labels.view(-1, 1))
-        self.alpha = self.alpha.gather(0, labels.view(-1))
-        loss = -torch.mul(torch.pow((1 - preds_softmax), self.gamma),
-                          preds_logsoft)  # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
-
-        loss = torch.mul(self.alpha, loss.t())
-        if self.size_average:
-            loss = loss.mean()
-        else:
-            loss = loss.sum()
-        return loss
-
-
-class Predictor(nn.Module):
-    def __init__(
-            self,
-            in_dim: int,
-            hidden_dim: int,
-            out_dim: int,
-            num_layers: int,
-            dropout: float = 0.1,
-            loss_fn='mse',
-            activation='prelu',
-    ):
-        super(Predictor, self).__init__()
-
-        dropout = 0
-        self.mlp = nn.Sequential(
-            nn.Linear(in_dim, hidden_dim),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm1d(hidden_dim))
-        self.mod = HGNN(
-            in_dim=hidden_dim,
-            num_hidden=hidden_dim,
-            out_dim=hidden_dim,
-            num_layers=num_layers,
-            dropout=dropout,
-            activation=activation)
-        self.linear = nn.Linear(hidden_dim, out_dim)
-        if loss_fn == 'mse':
-            self.criterion = nn.MSELoss()
-        else:
-            print("not implement")
-
-    def forward(self, H, he_rep, x):
-        he_rep = self.mlp(he_rep)
-        enc = self.mod(he_rep, H)
-        x_prime = self.linear(F.leaky_relu(enc))
-        loss = self.criterion(x_prime, x)
-        return loss, x_prime, enc
-
-    def predict(self, H, he_rep):
-        he_rep = self.mlp(he_rep)
-        enc = self.mod(he_rep, H)
-        x_prime = self.linear(F.leaky_relu(enc))
-        return x_prime
-
 
 class Predictor_dgi(nn.Module):
     def __init__(

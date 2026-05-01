@@ -382,11 +382,12 @@ class SpatialExP:
         self.loss_fn = loss_fn
         self.save_path = save_path
         self.use_agg = use_agg
+        self.platform = platform
         # 空间参数
         self.num_neighbors = num_neighbors
         self.graph_kind = graph_kind
 
-        self.slice1_dataloader = pp.Build_dataloader(adata1, graph=graph1, graph_norm='hpnn', feat_norm=False,
+        self.slice1_dataloader = pp.Build_dataloader(adata1, graph=graph1, graph_norm='hpnn', feat_norm=False, 
                                                      prune=[prune, prune], drop_last=False)
         
         self.slice2_dataloader = pp.Build_dataloader(adata2, graph=graph2, graph_norm='hpnn', feat_norm=False,
@@ -402,9 +403,9 @@ class SpatialExP:
         self.out_dim2 = adata2.n_vars
 
         self.module_HA = Model_Plus(in_dim=self.in_dim1, hidden_dim=self.hidden_dim, out_dim=self.out_dim1, num_layers=self.num_layers,
-                                   platform=platform).to(self.device)
+                                   platform=self.platform).to(self.device)
         self.module_HB = Model_Plus(in_dim=self.in_dim2, hidden_dim=self.hidden_dim, out_dim=self.out_dim2, num_layers=self.num_layers,
-                                   platform=platform).to(self.device)
+                                   platform=self.platform).to(self.device)
 
         self.rm_AB = Regression(self.out_dim1, self.out_dim2, self.out_dim2).to(self.device)
         self.rm_BA = Regression(self.out_dim2, self.out_dim1, self.out_dim1).to(self.device)
@@ -433,25 +434,44 @@ class SpatialExP:
         self.rm_BA.train()
         print('\n')
         print('=================================== Start training =========================================')
-        for epoch in tqdm(range(self.epochs)):
-            batch_iter = zip(self.slice1_dataloader, self.slice2_dataloader)
-            for data1, data2 in batch_iter:
-                graph1, he1, panel_1a = data1[0]['graph'].to(self.device), data1[0]['he'].to(self.device), data1[0]['exp'].to(self.device)
-                graph2, he2, panel_2b = data2[0]['graph'].to(self.device), data2[0]['he'].to(self.device), data2[0]['exp'].to(self.device)
-                agg_mtx1, agg_exp1 = data1[0]['agg_mtx'].to(self.device), data1[0]['agg_exp'].to(self.device)
-                agg_mtx2, agg_exp2 = data2[0]['agg_mtx'].to(self.device), data2[0]['agg_exp'].to(self.device)
-                
-                loss1, _ = self.module_HA(he1, graph1, panel_1a, agg_exp1, agg_mtx1, self.use_agg)
-                loss2, _ = self.module_HB(he2, graph2, panel_2b, agg_exp2, agg_mtx2, self.use_agg)
+        if self.platform == 'Xenium':
+            for epoch in tqdm(range(self.epochs)):
+                batch_iter = zip(self.slice1_dataloader, self.slice2_dataloader)
+                for data1, data2 in batch_iter:
+                    graph1, he1, panel_1a = data1[0]['graph'].to(self.device), data1[0]['he'].to(self.device), data1[0]['exp'].to(self.device)
+                    graph2, he2, panel_2b = data2[0]['graph'].to(self.device), data2[0]['he'].to(self.device), data2[0]['exp'].to(self.device)
+                    agg_mtx1, agg_exp1 = data1[0]['agg_mtx'].to(self.device), data1[0]['agg_exp'].to(self.device)
+                    agg_mtx2, agg_exp2 = data2[0]['agg_mtx'].to(self.device), data2[0]['agg_exp'].to(self.device)
+                    
+                    loss1, _ = self.module_HA(he1, graph1, panel_1a, agg_exp1, agg_mtx1, self.use_agg)
+                    loss2, _ = self.module_HB(he2, graph2, panel_2b, agg_exp2, agg_mtx2, self.use_agg)
 
-                panel_2a = self.module_HA.predict(he2, graph2, grad=False) ##对切片2的组学a进行预测
-                panel_1b = self.module_HB.predict(he1, graph1, grad=False) ##对切片1的组学b进行预测
-                
-                loss3, _ = self.rm_AB(panel_1a, panel_1b, torch.spmm(agg_mtx1, panel_1b), agg_mtx1, self.use_agg) ##将切片1的组学a映射成切片1的组学b，与预测的组学b进行比较
-                loss4, _ = self.rm_BA(panel_2b, panel_2a, torch.spmm(agg_mtx2, panel_2a), agg_mtx2, self.use_agg) ##将切片2的组学b映射成切片2的组学a，与预测的组学a进行比较
+                    panel_2a = self.module_HA.predict(he2, graph2, grad=False) ##对切片2的组学a进行预测
+                    panel_1b = self.module_HB.predict(he1, graph1, grad=False) ##对切片1的组学b进行预测
+                    
+                    loss3, _ = self.rm_AB(panel_1a, panel_1b, torch.spmm(agg_mtx1, panel_1b), agg_mtx1, self.use_agg) ##将切片1的组学a映射成切片1的组学b，与预测的组学b进行比较
+                    loss4, _ = self.rm_BA(panel_2b, panel_2a, torch.spmm(agg_mtx2, panel_2a), agg_mtx2, self.use_agg) ##将切片2的组学b映射成切片2的组学a，与预测的组学a进行比较
 
-                loss5, _ = self.rm_AB(panel_2a, panel_2b, agg_exp2, agg_mtx2, self.use_agg) #对切片2的组学a进行预测，在映射回组学b，与切片2的真实标签进行比较
-                loss6, _ = self.rm_BA(panel_1b, panel_1a, agg_exp1, agg_mtx1, self.use_agg) #对切片1的组学b进行预测，在映射回组学a，与切片1的真实标签进行比较
+                    loss5, _ = self.rm_AB(panel_2a, panel_2b, agg_exp2, agg_mtx2, self.use_agg) #对切片2的组学a进行预测，在映射回组学b，与切片2的真实标签进行比较
+                    loss6, _ = self.rm_BA(panel_1b, panel_1a, agg_exp1, agg_mtx1, self.use_agg) #对切片1的组学b进行预测，在映射回组学a，与切片1的真实标签进行比较
+                    loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
+
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
+
+        elif self.platform == 'Visium': ##不能用dataloader，直接用全量数据训练
+            for epoch in tqdm(range(self.epochs)):
+                loss1, _ = self.module_HA(self.HE1, self.graph1, self.panelA1, use_agg=False)
+                loss2, _ = self.module_HB(self.HE2, self.graph2, self.panelB2, use_agg=False)
+
+                panelA2 = self.module_HA.predict(self.HE2, self.graph2, grad=False)
+                panelB1 = self.module_HB.predict(self.HE1, self.graph1, grad=False)
+                loss3, _ = self.rm_AB(panelA2, self.panelB2, use_agg=False)
+                loss4, _ = self.rm_BA(panelB1, self.panelA1, use_agg=False)
+
+                loss5, _ = self.rm_AB(self.panelA1, panelB1, use_agg=False)
+                loss6, _ = self.rm_BA(self.panelB2, panelA2, use_agg=False)
                 loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
 
                 self.optimizer.zero_grad()

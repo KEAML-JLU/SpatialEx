@@ -135,7 +135,6 @@ def Compute_metrics(x, x_prime, metric='cosine_similarity', reduce='mean', graph
         metric_reduce = np.median(metric)
     return metric, metric_reduce
 
-
 def Compute_MoransI(adata, adj, store_key=None):
     n = adata.n_obs
     x_bar = np.mean(adata.X, axis=0)
@@ -148,7 +147,6 @@ def Compute_MoransI(adata, adj, store_key=None):
     if isinstance(store_key, str):
         adata.var[store_key] = MoransI
     return MoransI
-
 
 def create_optimizer(opt, model, lr, weight_decay, get_num_layer=None, get_layer_scale=None):
     opt_lower = opt.lower()
@@ -203,19 +201,14 @@ def create_ImageEncoder(model_name='resnet50', pretrained=True, frozen=True):
         # torchvision.models 的 ViT
         model = getattr(models, model_name)(pretrained=pretrained)
     elif model_name == 'uni':
-        #login('huggingface api')
-        
-        local_dir = "/home/wcy/code/pyFile/Xenium_modality_impute/inputs/vit_large_patch16_224.dinov2.uni_mass100k/" #"../assets/ckpts/vit_large_patch16_224.dinov2.uni_mass100k/"
-        #os.makedirs(local_dir, exist_ok=True)  # create directory if it does not exist
-        #hf_hub_download("MahmoodLab/UNI", filename="pytorch_model.bin", local_dir=local_dir, force_download=True)
+        print("Loading UNI model...")
+        local_dir = "/home/sjq/code/resources/UNI_weights/vit_large_patch16_224.dinov2.uni_mass100k/"  # "../assets/ckpts/vit_large_patch16_224.dinov2.uni_mass100k/"
+        # os.makedirs(local_dir, exist_ok=True)  # create directory if it does not exist
+        # hf_hub_download("MahmoodLab/UNI", filename="pytorch_model.bin", local_dir=local_dir, force_download=True)
         model = timm.create_model(
             "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=0, dynamic_img_size=True
         )
         model.load_state_dict(torch.load(os.path.join(local_dir, "pytorch_model.bin"), map_location="cpu"), strict=True)
-        model.load_state_dict(
-            torch.load(f"{local_dir}/pytorch_model.bin", map_location="cpu"),
-            strict=True
-        )
     elif model_name in ['prov-gigapath', 'gigapath']:
         model = timm.create_model("hf_hub:prov-gigapath/prov-gigapath", pretrained=True)
     elif model_name == 'phikon':
@@ -324,16 +317,3 @@ def Estimate_boundary(x, y, x_bin=250, deg=4):
     poly = np.poly1d(coeffs)
     y_estimate = poly(x)
     return poly, y_estimate
-
-
-def Estimate_gap(adata, array_key_prefix='array_', image_key='spatial'):
-    num_array_col = np.unique(adata.obs[array_key_prefix + 'row']).shape[0]
-    random_col_list = np.unique(adata.obs[array_key_prefix + 'row'])[np.random.randint(0, num_array_col, 10)]
-    gap_list = []
-    for random_col in random_col_list:
-        adata_col = adata[adata.obs[array_key_prefix + 'row'] == random_col]
-        adata_col = adata_col[np.argsort(adata_col.obs[array_key_prefix + 'col'].values)]
-        gap = np.median(adata_col.obsm[image_key][:, 0][1:] - adata_col.obsm[image_key][:, 0][:-1])
-        gap_list.append(gap)
-    gap = np.median(gap)
-    return gap

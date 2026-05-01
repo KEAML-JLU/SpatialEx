@@ -94,90 +94,6 @@ def Read_HE_image(img_path, suffix='.ome.tif'):
     return image_data, scale
 
 
-def Crop_HE_image(img, crop):
-    img = img[crop[0]:crop[1], crop[2]:crop[3]]
-    return img
-
-
-def Cell_segmentation(img, percent_threshold=0.2, pixel_threshold=190, device='cpu',
-                      patch_size=512, scale=1, min_size=50, chan=[1, 0], diameter=12, flow_threshold=1.0):
-    '''
-    Utilize Cellpose to perform cell segmentation on histological image, important params will be surrounded by stars
-    **percent_threshold, pixel_threshold**:  int,  The patch in which 1-percent_threshold percent of the pixels
-                                                   take values greater than 190 will be regared as bounaries
-    patch_size:     int,    Tiling the big img into (patch_size, patch_size, 3) dims to reduce memory consumption
-    min_size:       int,    Any ROI covering an area smaller than this value will be discarded
-    chan:           list,   Cell is distinguishable in chan[0]+1 channel of the img, and chan[1] is the backfround channel, for nuclei model, chan[1]=0
-    **diameter**:   int,    The median of the diameter of detected cells
-    flow_threshold: float,  Any cell with a probability smaller than this value whill be discarded
-    scale:          float,  Reduce the big img to reduce memory consumption
-    '''
-
-    print('======================== Estimating cells from histological image ===========================')
-    image_tensor = torch.Tensor(np.transpose(img, (2, 0, 1))).unsqueeze(0)  # 转化成(C, W, H), 添加批次维度
-    _, _, height, width = image_tensor.shape  # 添加padding，确保图像边缘不被丢弃
-    pad_h = (patch_size - height % patch_size) % patch_size
-    pad_w = (patch_size - width % patch_size) % patch_size
-    image_tensor_padded = F.pad(image_tensor, (0, pad_w, 0, pad_h), value=255)
-
-    patches = image_tensor_padded.unfold(2, patch_size, patch_size).unfold(3, patch_size,
-                                                                           patch_size)  # 使用unfold将图像切分成patches
-    patches = patches.squeeze().permute(1, 2, 3, 4, 0).numpy().astype(int)
-
-    model = models.Cellpose(gpu=True, model_type='nuclei', device=device)
-    total_num = 0.0
-    cell_list = []
-    for i in tqdm(range(patches.shape[0])):
-        row_list = []
-        for j in range(patches.shape[1]):
-            img = patches[i, j]
-            if np.percentile(img, percent_threshold) > pixel_threshold:
-                nuclei_masks = np.zeros_like(img[..., 0])
-            else:
-                nuclei_masks, _, _, _ = model.eval(255 - img, flow_threshold=flow_threshold, min_size=min_size,
-                                                   diameter=diameter, channels=chan, invert=False)
-                cell_num = nuclei_masks.max()  # 记录当前细胞数量
-                nuclei_masks = nuclei_masks.astype(np.float64)  # 细胞数量很大会溢出
-                nuclei_masks[nuclei_masks != 0] += total_num  # 提取的细胞序号加上之前的细胞总数, 得到不重复的细胞序号
-                total_num = total_num + cell_num  # 更新细胞总数
-            row_list.append(nuclei_masks)
-
-        row_list = np.hstack(row_list)
-        cell_list.append(row_list)
-    cell_list = np.vstack(cell_list)  # 组装回一张图
-    print(total_num, ' cells detected')
-
-    coords = np.array(np.nonzero(cell_list)).T
-    values = cell_list[tuple(coords.T)]
-    df = pd.DataFrame(coords, columns=['row', 'col'])
-    df['value'] = values
-    mean_coor = df.groupby('value').mean()  # 计算每个细胞的位置
-    return np.round(mean_coor.values)
-
-
-def Estimate_scale(physical_coor, pixel_coor, unit=100, reduce='median'):
-    '''
-    Assuming a linear correspondence between the physical location and the histological image,
-    estimate how much physical distance by um corresponds to one pixel.
-    unit:   int,    unit of the measure by um
-    '''
-    spatial = pd.DataFrame(np.hstack([physical_coor, pixel_coor]))
-    spatial.columns = ['x', 'y', 'px', 'py']
-    spatial_diff = spatial[1:].values - spatial[:-1].values
-    spatial_diff = pd.DataFrame(spatial_diff)
-    spatial_diff.columns = spatial.columns
-
-    scale_x = spatial_diff['x'] * unit / (spatial_diff['px'] + 1e-6)
-    scale_y = spatial_diff['y'] * unit / (spatial_diff['py'] + 1e-6)
-    scale_x = scale_x[scale_x != 0.0]
-    scale_y = scale_y[scale_y != 0.0]
-    if reduce == 'median':
-        scale = [np.median(scale_x.values), np.median(scale_y.values)]
-    elif reduce == 'mean':
-        scale = [np.mean(scale_x.values), np.mean(scale_y.values)]
-    return scale
-
-
 def Register_physical_to_pixel(adata, transform_matrix, scale=1,
                                raw_key=['x_centroid', 'y_centroid'],
                                matrix_type='pixel2phsical',  # 'pixel2phsical'或者'physical2pixel'
@@ -219,25 +135,6 @@ def Tiling_HE_patches(resolution, adata, img, key='image_coor'):  # iStar中说�
         x, y = adata.obsm[key][i]
         he_patches[i] = torch.tensor(img[y - patch_radius: y + patch_radius, x - patch_radius:x + patch_radius])
     return torch.stack(he_patches, dim=0) / 255.0, adata
-
-
-def Tiling_HE_patches_by_coor(resolution, coor, img, col_name=['col', 'row']):  # iStar中说，单细胞大小约为8um*8um
-    print('======================== Tiling HE patches for each single cells ===========================')
-
-    patch_radius = int(resolution / 2.0)
-    outlier_cells1 = np.where(coor < patch_radius)[0]
-    outlier_cells2 = np.where(coor[col_name[0]] > (img.shape[1] - patch_radius))[0]
-    outlier_cells3 = np.where(coor[col_name[1]] > (img.shape[0] - patch_radius))[0]
-    outlier_cells = np.unique(np.hstack([outlier_cells1, outlier_cells2, outlier_cells3]))
-    if len(outlier_cells) != 0:
-        print('Remove the outlier cells, and Anndata file was reduced!')
-        inlier_cells = set(np.arange(coor.shape[0])) - set(outlier_cells)
-        coor = coor.iloc[list(inlier_cells)]
-    he_patches = [0] * coor.shape[0]
-    for i in tqdm(range(coor.shape[0])):
-        x, y = coor.iloc[i][col_name[0]], coor.iloc[i][col_name[1]]
-        he_patches[i] = torch.tensor(img[y - patch_radius: y + patch_radius, x - patch_radius:x + patch_radius])
-    return torch.stack(he_patches, dim=0) / 255.0, coor
 
 
 def Extract_HE_patches_representaion(he_patches, store_key=None, adata=None, skip_embedding=False, img_batch_size=64, image_encoder='uni', device='cuda'):
@@ -479,18 +376,6 @@ def Build_hypergraph_spatial_and_HE(adata, num_neighbors=7, batch_size=4096, nor
             H = H.tocsr()
     return H
 
-# 超图归一化
-def normalize_hypergraph(H, edge_weight=None):
-    DE = np.squeeze(H.sum(0).A)
-    DV = np.squeeze(H.sum(1).A)
-    DE = sp.diags(np.power(DE.astype(float), -1), offsets=0, format='csr')
-    DV = sp.diags(np.power(DV.astype(float), -0.5), offsets=0, format='csr')
-    if edge_weight != None:
-        W = sp.diags(np.squeeze(edge_weight), offsets=0, format='csr')
-    else:
-        W = sp.diags(np.ones(shape=(H.shape[1])), offsets=0, format='csr')
-    return DV @ H @ W @ DE @ H.T @ DV
-
 
 # 常规图归一化
 def normalize_graph(H, edge_weight=None, norm_type='gcn'):
@@ -523,7 +408,7 @@ def normalize_graph(H, edge_weight=None, norm_type='gcn'):
     return adj
 
 
-def sparse_mx_to_torch_sparse_tensor(sparse_mx, return_mtx=True):
+def sparse_mx_to_torch_sparse_tensor(sparse_mx, return_mtx=True): ##
     """Convert a scipy sparse matrix to a torch sparse tensor."""
     sparse_mx = sparse_mx.tocoo().astype(np.float32)
     indices = torch.from_numpy(
@@ -536,7 +421,7 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx, return_mtx=True):
         return indices, values, shape
 
 
-def Build_dataloader(adata, graph, batch_size=1, ori=False, graph_norm='hpnn', feat_norm=False,
+def Build_dataloader(adata, graph, batch_size=1, ori=False, graph_norm='hpnn', feat_norm=False,  ##
                      shuffle=True, prune=[10000, 10000], drop_last=False):
     '''
     ori:         bool,           Whether or not a count matrix is required
@@ -568,7 +453,7 @@ class Xenium_HBRC_overlap(torch.utils.data.Dataset):
         tail = np.where(~pd.isna(adata.obs['spot']))[0]
         values = np.ones_like(tail)
         agg_mtx = sp.coo_matrix((values, (head, tail)), shape=(head.max() + 1, adata.n_obs)).tocsr()
-
+        # print(agg_mtx)
         row = adata.obs['x_centroid'].values  # 从0开始比较好计算
         col = adata.obs['y_centroid'].values
         exp = torch.Tensor(adata.X)
